@@ -87,22 +87,23 @@ typedef enum { WS_EVT_CONNECT, WS_EVT_DISCONNECT, WS_EVT_PONG, WS_EVT_ERROR, WS_
 class AsyncWebSocketMessage
 {
 private:
-    std::shared_ptr<std::vector<uint8_t>> _WSbuffer;
+    std::shared_ptr<uint8_t[]> _WSbuffer;
+    std::size_t bufferSize;
     uint8_t _opcode{WS_TEXT};
     bool _mask{false};
     AwsMessageStatus _status{WS_MSG_ERROR};
-    size_t _sent{};
-    size_t _ack{};
-    size_t _acked{};
+    std::size_t _sent{};
+    std::size_t _ack{};
+    std::size_t _acked{};
 
 public:
-    AsyncWebSocketMessage(std::shared_ptr<std::vector<uint8_t>> buffer, uint8_t opcode=WS_TEXT, bool mask=false);
+    AsyncWebSocketMessage(std::shared_ptr<uint8_t[]> buffer, std::size_t bufferSize, uint8_t opcode=WS_TEXT, bool mask=false);
 
     bool finished() const { return _status != WS_MSG_SENDING; }
     bool betweenFrames() const { return _acked == _ack; }
 
     void ack(size_t len, uint32_t time);
-    size_t send(AsyncClient *client);
+    std::size_t send(AsyncClient *client);
 };
 
 class AsyncWebSocketClient {
@@ -123,8 +124,8 @@ class AsyncWebSocketClient {
     uint32_t _lastMessageTime;
     uint32_t _keepAlivePeriod;
 
-    void _queueControl(uint8_t opcode, const uint8_t *data=NULL, size_t len=0, bool mask=false);
-    void _queueMessage(std::shared_ptr<std::vector<uint8_t>> buffer, uint8_t opcode=WS_TEXT, bool mask=false);
+    void _queueControl(uint8_t opcode, const uint8_t *data=NULL, std::size_t len=0, bool mask=false);
+    void _queueMessage(std::shared_ptr<uint8_t[]> buffer, std::size_t bufferSize, uint8_t opcode=WS_TEXT, bool mask=false);
     void _runQueue();
 
   public:
@@ -149,7 +150,7 @@ class AsyncWebSocketClient {
 
     //control frames
     void close(uint16_t code=0, const char * message=NULL);
-    void ping(const uint8_t *data=NULL, size_t len=0);
+    void ping(const uint8_t *data=NULL, std::size_t len=0);
 
     //set auto-ping period in seconds. disabled if zero (default)
     void keepAlivePeriod(uint16_t seconds){
@@ -160,27 +161,27 @@ class AsyncWebSocketClient {
     }
 
     //data packets
-    void message(std::shared_ptr<std::vector<uint8_t>> buffer, uint8_t opcode=WS_TEXT, bool mask=false) { _queueMessage(buffer, opcode, mask); }
+    void message(std::shared_ptr<uint8_t[]> buffer, std::size_t bufferSize, uint8_t opcode=WS_TEXT, bool mask=false) { _queueMessage(buffer, opcode, mask); }
     bool queueIsFull() const;
 
-    size_t printf(const char *format, ...)  __attribute__ ((format (printf, 2, 3)));
+    std::size_t printf(const char *format, ...)  __attribute__ ((format (printf, 2, 3)));
 #ifndef ESP32
-    size_t printf_P(PGM_P formatP, ...)  __attribute__ ((format (printf, 2, 3)));
+    std::size_t printf_P(PGM_P formatP, ...)  __attribute__ ((format (printf, 2, 3)));
 #endif
 
-    void text(std::shared_ptr<std::vector<uint8_t>> buffer);
-    void text(const uint8_t *message, size_t len);
-    void text(const char *message, size_t len);
+    void text(std::shared_ptr<uint8_t[]> buffer, std::size_t bufferSize);
+    void text(const uint8_t *message, std::size_t len);
+    void text(const char *message, std::size_t len);
     void text(const char *message);
     void text(const String &message);
     void text(const __FlashStringHelper *message);
 
-    void binary(std::shared_ptr<std::vector<uint8_t>> buffer);
-    void binary(const uint8_t *message, size_t len);
-    void binary(const char *message, size_t len);
+    void binary(std::shared_ptr<uint8_t[]> buffer, std::size_t bufferSize);
+    void binary(const uint8_t *message, std::size_t len);
+    void binary(const char *message, std::size_t len);
     void binary(const char *message);
     void binary(const String &message);
-    void binary(const __FlashStringHelper *message, size_t len);
+    void binary(const __FlashStringHelper *message, std::size_t len);
 
     bool canSend() const;
 
@@ -190,10 +191,10 @@ class AsyncWebSocketClient {
     void _onPoll();
     void _onTimeout(uint32_t time);
     void _onDisconnect();
-    void _onData(void *pbuf, size_t plen);
+    void _onData(void *pbuf, std::size_t plen);
 };
 
-typedef std::function<void(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)> AwsEventHandler;
+typedef std::function<void(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, std::size_t len)> AwsEventHandler;
 
 //WebServer Handler implementation that plays the role of a socket server
 class AsyncWebSocket: public AsyncWebHandler {
@@ -214,7 +215,7 @@ class AsyncWebSocket: public AsyncWebHandler {
     bool availableForWriteAll();
     bool availableForWrite(uint32_t id);
 
-    size_t count() const;
+    std::size_t count() const;
     AsyncWebSocketClient * client(uint32_t id);
     bool hasClient(uint32_t id){ return client(id) != NULL; }
 
@@ -222,41 +223,41 @@ class AsyncWebSocket: public AsyncWebHandler {
     void closeAll(uint16_t code=0, const char * message=NULL);
     void cleanupClients(uint16_t maxClients = DEFAULT_MAX_WS_CLIENTS);
 
-    void ping(uint32_t id, const uint8_t *data=NULL, size_t len=0);
-    void pingAll(const uint8_t *data=NULL, size_t len=0); //  done
+    void ping(uint32_t id, const uint8_t *data=NULL, std::size_t len=0);
+    void pingAll(const uint8_t *data=NULL, std::size_t len=0); //  done
 
-    void text(uint32_t id, const uint8_t *message, size_t len);
-    void text(uint32_t id, const char *message, size_t len);
+    void text(uint32_t id, const uint8_t *message, std::size_t len);
+    void text(uint32_t id, const char *message, std::size_t len);
     void text(uint32_t id, const char *message);
     void text(uint32_t id, const String &message);
     void text(uint32_t id, const __FlashStringHelper *message);
 
-    void textAll(std::shared_ptr<std::vector<uint8_t>> buffer);
-    void textAll(const uint8_t *message, size_t len);
-    void textAll(const char * message, size_t len);
+    void textAll(std::shared_ptr<uint8_t[]> buffer, std::size_t bufferSize);
+    void textAll(const uint8_t *message, std::size_t len);
+    void textAll(const char * message, std::size_t len);
     void textAll(const char * message);
     void textAll(const String &message);
     void textAll(const __FlashStringHelper *message); //  need to convert
 
-    void binary(uint32_t id, const uint8_t *message, size_t len);
-    void binary(uint32_t id, const char *message, size_t len);
+    void binary(uint32_t id, const uint8_t *message, std::size_t len);
+    void binary(uint32_t id, const char *message, std::size_t len);
     void binary(uint32_t id, const char *message);
     void binary(uint32_t id, const String &message);
-    void binary(uint32_t id, const __FlashStringHelper *message, size_t len);
+    void binary(uint32_t id, const __FlashStringHelper *message, std::size_t len);
 
-    void binaryAll(std::shared_ptr<std::vector<uint8_t>> buffer);
-    void binaryAll(const uint8_t *message, size_t len);
-    void binaryAll(const char *message, size_t len);
+    void binaryAll(std::shared_ptr<uint8_t[]> buffer, std::size_t bufferSize);
+    void binaryAll(const uint8_t *message, std::size_t len);
+    void binaryAll(const char *message, std::size_t len);
     void binaryAll(const char *message);
     void binaryAll(const String &message);
-    void binaryAll(const __FlashStringHelper *message, size_t len);
+    void binaryAll(const __FlashStringHelper *message, std::size_t len);
 
-    size_t printf(uint32_t id, const char *format, ...)  __attribute__ ((format (printf, 3, 4)));
-    size_t printfAll(const char *format, ...)  __attribute__ ((format (printf, 2, 3)));
+    std::size_t printf(uint32_t id, const char *format, ...)  __attribute__ ((format (printf, 3, 4)));
+    std::size_t printfAll(const char *format, ...)  __attribute__ ((format (printf, 2, 3)));
 #ifndef ESP32
-    size_t printf_P(uint32_t id, PGM_P formatP, ...)  __attribute__ ((format (printf, 3, 4)));
+    std::size_t printf_P(uint32_t id, PGM_P formatP, ...)  __attribute__ ((format (printf, 3, 4)));
 #endif
-    size_t printfAll_P(PGM_P formatP, ...)  __attribute__ ((format (printf, 2, 3)));
+    std::size_t printfAll_P(PGM_P formatP, ...)  __attribute__ ((format (printf, 2, 3)));
 
     //event listener
     void onEvent(AwsEventHandler handler){
@@ -266,7 +267,7 @@ class AsyncWebSocket: public AsyncWebHandler {
     //system callbacks (do not call)
     uint32_t _getNextId(){ return _cNextId++; }
     AsyncWebSocketClient *_newClient(AsyncWebServerRequest *request);
-    void _handleEvent(AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len);
+    void _handleEvent(AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, std::size_t len);
     virtual bool canHandle(AsyncWebServerRequest *request) override final;
     virtual void handleRequest(AsyncWebServerRequest *request) override final;
 
@@ -281,7 +282,7 @@ class AsyncWebSocketResponse: public AsyncWebServerResponse {
   public:
     AsyncWebSocketResponse(const String& key, AsyncWebSocket *server);
     void _respond(AsyncWebServerRequest *request);
-    size_t _ack(AsyncWebServerRequest *request, size_t len, uint32_t time);
+    std::size_t _ack(AsyncWebServerRequest *request, std::size_t len, uint32_t time);
     bool _sourceValid() const { return true; }
 };
 
